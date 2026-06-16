@@ -1,0 +1,60 @@
+---
+# Assisted Installer API
+ai_api_base: https://api.openshift.com/api/assisted-install/v2
+ai_sso_token_url: https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token
+
+# ---------------------------------------------------------------------------
+# UI form 1 — Cluster details
+# ---------------------------------------------------------------------------
+cluster_name: cluster4
+base_domain: homelab.com
+openshift_version: "4.16"
+control_plane_count: 1
+cpu_architecture: x86_64
+
+# SNO homelab: one IP for API VIP, Ingress VIP, apps, and the node itself
+sno_host_ip: 192.168.122.99
+sno_vip: "{{ sno_host_ip }}"
+api_vip: "{{ sno_vip }}"
+ingress_vip: "{{ sno_vip }}"
+
+# ---------------------------------------------------------------------------
+# UI form 2 — Static network (DNS, IPv4, subnet, default gateway)
+# ---------------------------------------------------------------------------
+machine_network_cidr: 192.168.122.0/24
+sno_subnet_prefix_length: 24
+default_gateway: 192.168.122.1
+dns_servers:
+  - 192.168.122.1
+
+# Must match the MAC you assign in virt-install / libvirt
+sno_vm_mac: "52:54:00:00:00:99"
+# Logical NIC name in NMState; Assisted Installer maps it to the real interface via MAC
+sno_nic_logical_name: eth0
+
+# Cluster SDN (defaults match Assisted Installer UI)
+cluster_network_cidr: 10.128.0.0/14
+cluster_network_host_prefix: 23
+service_network_cidr: 172.30.0.0/16
+network_type: OVNKubernetes
+user_managed_networking: true
+vip_dhcp_allocation: false
+schedulable_masters: true
+
+# ---------------------------------------------------------------------------
+# UI form 3 — Operators (Local Storage Operator → default StorageClass)
+# ---------------------------------------------------------------------------
+ai_install_operators:
+  - name: lso
+
+# ---------------------------------------------------------------------------
+# UI form 4 — Discovery image + SSH public key
+# ---------------------------------------------------------------------------
+ai_image_type: minimal-iso
+ai_ssh_public_key_file: "{{ lookup('env', 'HOME') }}/.ssh/id_rsa.pub"
+ai_infra_env_name: "{{ cluster_name }}-infra-env"
+ai_artifacts_dir: "{{ playbook_dir }}/../artifacts"
+ai_iso_filename: "discovery.{{ cluster_name }}.iso"
+
+# Pull secret — download from console.redhat.com (do not copy-paste)
+ai_pull_secret_file: "{{ playbook_dir }}/../secrets/pull-secret.json"

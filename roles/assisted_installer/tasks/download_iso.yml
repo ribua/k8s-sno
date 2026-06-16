@@ -1,0 +1,35 @@
+---
+- name: Refresh API token before ISO download
+  ansible.builtin.include_tasks: authenticate.yml
+
+- name: Get discovery ISO download URL
+  ansible.builtin.uri:
+    url: "{{ ai_api_base }}/infra-envs/{{ ai_infra_env_id }}/downloads/image-url"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ ai_api_token }}"
+    status_code: 200
+    return_content: true
+  register: ai_iso_url_response
+
+- name: Ensure artifacts directory exists
+  ansible.builtin.file:
+    path: "{{ ai_artifacts_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Download discovery ISO
+  ansible.builtin.get_url:
+    url: "{{ ai_iso_url_response.json.url }}"
+    dest: "{{ ai_artifacts_dir }}/{{ ai_iso_filename }}"
+    headers:
+      Authorization: "Bearer {{ ai_api_token }}"
+    mode: "0644"
+  register: ai_iso_download
+
+- name: Show ISO download result
+  ansible.builtin.debug:
+    msg:
+      - "Discovery ISO saved to: {{ ai_artifacts_dir }}/{{ ai_iso_filename }}"
+      - "URL expires at: {{ ai_iso_url_response.json.expires_at }}"
+      - "Boot a VM from this ISO, then open the console URL above to finish install."

@@ -1,0 +1,4 @@
+---
+# Defaults are in group_vars/all.yml; keep role portable.
+ai_api_base: https://api.openshift.com/api/assisted-install/v2
+ai_sso_token_url: https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token

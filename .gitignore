@@ -1,0 +1,5 @@
+group_vars/secrets.yml
+artifacts/*.iso
+artifacts/*.json
+*.retry
+.vault_pass

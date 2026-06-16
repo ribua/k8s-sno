@@ -1,0 +1,28 @@
+---
+- name: Validate offline token is set
+  ansible.builtin.assert:
+    that:
+      - rh_offline_token is defined
+      - rh_offline_token | length > 0
+    fail_msg: >-
+      Set rh_offline_token in group_vars/secrets.yml or pass -e rh_offline_token=...
+      Token: https://console.redhat.com/openshift/token
+
+- name: Exchange offline token for Assisted Installer API token
+  ansible.builtin.uri:
+    url: "{{ ai_sso_token_url }}"
+    method: POST
+    body_format: form-urlencoded
+    body:
+      grant_type: refresh_token
+      client_id: cloud-services
+      refresh_token: "{{ rh_offline_token }}"
+    status_code: 200
+    return_content: true
+  register: ai_token_response
+  no_log: true
+
+- name: Store API bearer token
+  ansible.builtin.set_fact:
+    ai_api_token: "{{ ai_token_response.json.access_token }}"
+  no_log: true

@@ -1,0 +1,31 @@
+---
+- name: Write cluster metadata for downstream playbooks / AAP
+  ansible.builtin.copy:
+    content: "{{ ai_metadata | to_nice_json }}"
+    dest: "{{ ai_artifacts_dir }}/{{ cluster_name }}-assisted-installer.json"
+    mode: "0644"
+  vars:
+    ai_metadata:
+      cluster_name: "{{ cluster_name }}"
+      base_domain: "{{ base_domain }}"
+      cluster_id: "{{ ai_cluster_id }}"
+      infra_env_id: "{{ ai_infra_env_id }}"
+      sno_host_ip: "{{ sno_host_ip }}"
+      sno_vip: "{{ sno_vip }}"
+      api_vip: "{{ api_vip }}"
+      ingress_vip: "{{ ingress_vip }}"
+      default_gateway: "{{ default_gateway }}"
+      dns_servers: "{{ dns_servers }}"
+      machine_network_cidr: "{{ machine_network_cidr }}"
+      sno_vm_mac: "{{ sno_vm_mac }}"
+      operators: "{{ ai_install_operators }}"
+      console_url: "https://console.redhat.com/openshift/assisted-installer/clusters/{{ ai_cluster_id }}"
+      iso_path: "{{ ai_artifacts_dir }}/{{ ai_iso_filename }}"
+      fqdn:
+        api: "api.{{ cluster_name }}.{{ base_domain }}"
+        apps: "*.apps.{{ cluster_name }}.{{ base_domain }}"
+        console: "console-openshift-console.apps.{{ cluster_name }}.{{ base_domain }}"
+      dns_records_hint:
+        - "{{ sno_vip }} api.{{ cluster_name }}.{{ base_domain }}"
+        - "{{ sno_vip }} api-int.{{ cluster_name }}.{{ base_domain }}"
+        - "{{ sno_vip }} *.apps.{{ cluster_name }}.{{ base_domain }}"

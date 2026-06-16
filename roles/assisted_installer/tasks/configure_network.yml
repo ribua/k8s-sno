@@ -1,0 +1,49 @@
+---
+# Mirrors Assisted Installer UI — form 2: static IP, DNS, subnet, default gateway.
+# Applied to the discovery ISO via NMState before download.
+- name: Validate static network inputs
+  ansible.builtin.assert:
+    that:
+      - sno_vm_mac is defined
+      - sno_vm_mac | length > 0
+      - sno_host_ip is defined
+      - default_gateway is defined
+      - dns_servers | length > 0
+    fail_msg: >-
+      Set sno_vm_mac (libvirt MAC), sno_host_ip, default_gateway, and dns_servers
+      in group_vars/all.yml to match your Assisted Installer network form.
+
+- name: Refresh API token before network configuration
+  ansible.builtin.include_tasks: authenticate.yml
+
+- name: Build NMState YAML for static network
+  ansible.builtin.set_fact:
+    ai_nmstate_yaml: "{{ lookup('template', 'nmstate-static-network.yml.j2') }}"
+
+- name: Apply static network configuration to infra-env
+  ansible.builtin.uri:
+    url: "{{ ai_api_base }}/infra-envs/{{ ai_infra_env_id }}"
+    method: PATCH
+    headers:
+      Authorization: "Bearer {{ ai_api_token }}"
+      Content-Type: application/json
+    body_format: json
+    body:
+      pull_secret: "{{ ai_pull_secret }}"
+      image_type: "{{ ai_image_type }}"
+      static_network_config:
+        - network_yaml: "{{ ai_nmstate_yaml }}"
+          mac_interface_map:
+            - mac_address: "{{ sno_vm_mac }}"
+              logical_nic_name: "{{ sno_nic_logical_name }}"
+    status_code: [200, 201]
+    return_content: true
+  register: ai_network_response
+
+- name: Show static network result
+  ansible.builtin.debug:
+    msg:
+      - "Static IP: {{ sno_host_ip }}/{{ sno_subnet_prefix_length }}"
+      - "Gateway: {{ default_gateway }}"
+      - "DNS: {{ dns_servers | join(', ') }}"
+      - "MAC: {{ sno_vm_mac }} -> {{ sno_nic_logical_name }}"

@@ -1,0 +1,58 @@
+---
+# Mirrors Assisted Installer UI — form 1: cluster name, base domain, version,
+# control plane count (1 for SNO), and the single VIP used for API + Ingress.
+- name: Load pull secret from file
+  ansible.builtin.set_fact:
+    ai_pull_secret: "{{ lookup('file', ai_pull_secret_file) | from_json }}"
+  no_log: true
+
+- name: Register SNO cluster with Assisted Installer
+  ansible.builtin.uri:
+    url: "{{ ai_api_base }}/clusters"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ ai_api_token }}"
+      Content-Type: application/json
+    body_format: json
+    body:
+      name: "{{ cluster_name }}"
+      openshift_version: "{{ openshift_version }}"
+      control_plane_count: "{{ control_plane_count | int }}"
+      base_dns_domain: "{{ base_domain }}"
+      cpu_architecture: "{{ cpu_architecture }}"
+      pull_secret: "{{ ai_pull_secret }}"
+      schedulable_masters: "{{ schedulable_masters }}"
+      user_managed_networking: "{{ user_managed_networking }}"
+      vip_dhcp_allocation: "{{ vip_dhcp_allocation }}"
+      network_type: "{{ network_type }}"
+      platform:
+        type: none
+      api_vips:
+        - ip: "{{ api_vip }}"
+      ingress_vips:
+        - ip: "{{ ingress_vip }}"
+      machine_networks:
+        - cidr: "{{ machine_network_cidr }}"
+      cluster_networks:
+        - cidr: "{{ cluster_network_cidr }}"
+          host_prefix: "{{ cluster_network_host_prefix }}"
+      service_networks:
+        - cidr: "{{ service_network_cidr }}"
+      olm_operators: "{{ ai_install_operators }}"
+    status_code: 201
+    return_content: true
+  register: ai_cluster_response
+
+- name: Save cluster ID
+  ansible.builtin.set_fact:
+    ai_cluster_id: "{{ ai_cluster_response.json.id }}"
+
+- name: Show cluster registration result
+  ansible.builtin.debug:
+    msg:
+      - "Cluster registered: {{ cluster_name }}.{{ base_domain }}"
+      - "Control planes: {{ control_plane_count }} (SNO)"
+      - "Single VIP (API + Ingress): {{ sno_vip }}"
+      - "Operators: {{ ai_install_operators | map(attribute='name') | list | join(', ') }}"
+      - "Cluster ID: {{ ai_cluster_id }}"
+      - "Console: https://console.redhat.com/openshift/assisted-installer/clusters/{{ ai_cluster_id }}"

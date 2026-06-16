@@ -1,0 +1,25 @@
+---
+# Create an SNO cluster at cloud.redhat.com and download the discovery ISO.
+#
+# Mirrors the Hybrid Cloud Console wizard:
+#   Form 1 — cluster name, base domain, OpenShift version, 1 control plane, VIP
+#   Form 2 — static IP, DNS, subnet, default gateway (NMState in ISO)
+#   Form 3 — Local Storage Operator (default StorageClass)
+#   Form 4 — SSH public key + discovery image download
+#
+# Prerequisites:
+#   cp group_vars/secrets.yml.example group_vars/secrets.yml
+#   secrets/pull-secret.json  (downloaded from console.redhat.com)
+#   ~/.ssh/id_rsa.pub
+#   Set sno_vm_mac in group_vars/all.yml to match your libvirt VM
+#
+# Run:
+#   ansible-playbook playbooks/create-cluster-and-iso.yml
+- name: Create Assisted Installer SNO cluster and download discovery ISO
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - ../group_vars/all.yml
+    - ../group_vars/secrets.yml
+  roles:
+    - role: assisted_installer

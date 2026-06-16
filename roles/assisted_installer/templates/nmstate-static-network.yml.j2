@@ -1,0 +1,23 @@
+# NMState config embedded in the discovery ISO (matches Assisted Installer UI static network form)
+dns-resolver:
+  config:
+    server:
+{% for dns in dns_servers %}
+    - {{ dns }}
+{% endfor %}
+interfaces:
+- name: {{ sno_nic_logical_name }}
+  type: ethernet
+  state: up
+  ipv4:
+    enabled: true
+    dhcp: false
+    address:
+    - ip: {{ sno_host_ip }}
+      prefix-length: {{ sno_subnet_prefix_length }}
+routes:
+  config:
+  - destination: 0.0.0.0/0
+    next-hop-address: {{ default_gateway }}
+    next-hop-interface: {{ sno_nic_logical_name }}
+    table-id: 254
