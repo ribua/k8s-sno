@@ -1,0 +1,14 @@
+---
+# Attach discovery ISO, enable boot menu, and start the pre-created SNO VM.
+#
+# At startup, use the boot menu to select the discovery CDROM.
+# Then run playbooks/install-sno.yml to accept the host and install.
+#
+#   ansible-playbook playbooks/boot-sno-vm.yml
+- name: Boot SNO VM with discovery ISO
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - ../group_vars/all.yml
+  roles:
+    - role: libvirt_sno

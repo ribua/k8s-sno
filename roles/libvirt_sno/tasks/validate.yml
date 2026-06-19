@@ -1,0 +1,43 @@
+---
+- name: Get SNO VM power state before validation
+  ansible.builtin.command:
+    cmd: "virsh --connect {{ sno_libvirt_uri }} domstate {{ sno_vm_name }}"
+  register: sno_domstate_pre
+  changed_when: false
+  failed_when: false
+
+- name: Resume SNO VM if paused (prevents disk stat hangs)
+  ansible.builtin.command:
+    cmd: "virsh --connect {{ sno_libvirt_uri }} resume {{ sno_vm_name }}"
+  when: sno_domstate_pre.stdout | trim == 'paused'
+  register: sno_resume
+  changed_when: sno_resume.rc == 0
+  failed_when: false
+
+- name: Verify primary disk image exists
+  ansible.builtin.command:
+    cmd: "test -e {{ sno_vm_disk_primary | quote }}"
+  changed_when: false
+
+- name: Verify secondary disk image exists
+  ansible.builtin.command:
+    cmd: "test -e {{ sno_vm_disk_secondary | quote }}"
+  changed_when: false
+
+- name: Verify discovery ISO exists
+  ansible.builtin.command:
+    cmd: "test -e {{ sno_discovery_iso | quote }}"
+  changed_when: false
+
+- name: Check SNO VM is defined in libvirt
+  ansible.builtin.command:
+    cmd: "virsh --connect {{ sno_libvirt_uri }} dominfo {{ sno_vm_name }}"
+  register: sno_dominfo
+  changed_when: false
+  failed_when: sno_dominfo.rc != 0
+
+- name: Get SNO VM power state
+  ansible.builtin.command:
+    cmd: "virsh --connect {{ sno_libvirt_uri }} domstate {{ sno_vm_name }}"
+  register: sno_domstate
+  changed_when: false

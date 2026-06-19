@@ -1,0 +1,85 @@
+---
+# Normalize MAC for comparison (strip separators, lowercase).
+- name: Normalize expected SNO MAC
+  ansible.builtin.set_fact:
+    ai_sno_mac_normalized: "{{ sno_vm_mac | lower | regex_replace('[:-]', '') }}"
+
+- name: Reset infra-env host match for this poll
+  ansible.builtin.set_fact:
+    ai_infra_env_sno_host: null
+
+- name: Fetch hosts registered to infra-env
+  ansible.builtin.uri:
+    url: "{{ ai_api_base }}/infra-envs/{{ ai_infra_env_id }}/hosts?with-inventory=true"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ ai_api_token }}"
+    status_code: 200
+    return_content: true
+  register: ai_infra_env_hosts_response
+
+- name: Find SNO host in infra-env by MAC
+  ansible.builtin.set_fact:
+    ai_infra_env_sno_host: "{{ item }}"
+  loop: "{{ ai_infra_env_hosts_response.json }}"
+  when: >-
+    ai_infra_env_sno_host is none
+    and item.inventory is defined
+    and (
+      item.inventory.interfaces | default([])
+      | map(attribute='mac_address')
+      | map('lower')
+      | map('regex_replace', '[:-]', '')
+      | list
+      | select('equalto', ai_sno_mac_normalized)
+      | list
+      | length > 0
+    )
+  loop_control:
+    label: "{{ item.id | default('host') }}"
+
+- name: Bind discovered host to cluster draft
+  ansible.builtin.uri:
+    url: "{{ ai_api_base }}/infra-envs/{{ ai_infra_env_id }}/hosts/{{ ai_infra_env_sno_host.id }}/actions/bind"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ ai_api_token }}"
+      Content-Type: application/json
+    body_format: json
+    body:
+      cluster_id: "{{ ai_cluster_id }}"
+    status_code: [200, 201, 202, 204, 409]
+    return_content: true
+  register: ai_bind_host_response
+  when:
+    - ai_infra_env_sno_host is mapping
+    - ai_infra_env_sno_host.id is defined
+    - ai_infra_env_sno_host.cluster_id | default('') != ai_cluster_id
+
+- name: Assign master role to discovered SNO host
+  ansible.builtin.uri:
+    url: "{{ ai_api_base }}/clusters/{{ ai_cluster_id }}/hosts/{{ ai_infra_env_sno_host.id }}"
+    method: PATCH
+    headers:
+      Authorization: "Bearer {{ ai_api_token }}"
+      Content-Type: application/json
+    body_format: json
+    body:
+      role: master
+    status_code: [200, 201, 409]
+    return_content: true
+  register: ai_assign_host_role_response
+  when:
+    - ai_infra_env_sno_host is mapping
+    - ai_infra_env_sno_host.id is defined
+    - ai_infra_env_sno_host.role | default('') not in ['master', 'control-plane']
+
+- name: Show host accepted via API
+  ansible.builtin.debug:
+    msg:
+      - "Host accepted: {{ ai_infra_env_sno_host.id }}"
+      - "Status: {{ ai_infra_env_sno_host.status | default('unknown') }}"
+      - "Role: {{ ai_infra_env_sno_host.role | default('pending') }}"
+  when:
+    - ai_infra_env_sno_host is mapping
+    - ai_infra_env_sno_host.id is defined

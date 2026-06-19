@@ -17,10 +17,18 @@
       grant_type: refresh_token
       client_id: cloud-services
       refresh_token: "{{ rh_offline_token }}"
-    status_code: 200
+    status_code: [200, 400, 401, 403]
     return_content: true
   register: ai_token_response
   no_log: true
+
+- name: Fail if Red Hat SSO rejected the offline token
+  ansible.builtin.fail:
+    msg: >-
+      Red Hat SSO token exchange failed (HTTP {{ ai_token_response.status }}).
+      Offline tokens expire — get a new one at https://console.redhat.com/openshift/token
+      then update: ansible-vault edit --vault-password-file .vault_pass --vault-id default secrets/vault.yml
+  when: ai_token_response.status != 200
 
 - name: Store API bearer token
   ansible.builtin.set_fact:

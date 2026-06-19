@@ -1,4 +1,9 @@
 ---
+# Repo root paths (stable regardless of playbook location)
+ai_repo_root: "{{ inventory_dir | dirname }}"
+ai_secrets_vault_file: "{{ ai_repo_root }}/secrets/vault.yml"
+ai_pull_secret_file: "{{ ai_repo_root }}/secrets/pull-secret.json"
+
 # Assisted Installer API
 ai_api_base: https://api.openshift.com/api/assisted-install/v2
 ai_sso_token_url: https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token
@@ -8,11 +13,12 @@ ai_sso_token_url: https://sso.redhat.com/auth/realms/redhat-external/protocol/op
 # ---------------------------------------------------------------------------
 cluster_name: cluster4
 base_domain: homelab.com
-openshift_version: "4.16"
+openshift_version: "4.22.0"
 control_plane_count: 1
 cpu_architecture: x86_64
 
-# SNO homelab: one IP for API VIP, Ingress VIP, apps, and the node itself
+# SNO homelab: one IP for api, apps, and the node (DNS + static host config).
+# Do NOT send api_vips/ingress_vips at cluster create — API forbids them for SNO.
 sno_host_ip: 192.168.122.99
 sno_vip: "{{ sno_host_ip }}"
 api_vip: "{{ sno_vip }}"
@@ -27,9 +33,8 @@ default_gateway: 192.168.122.1
 dns_servers:
   - 192.168.122.1
 
-# Must match the MAC you assign in virt-install / libvirt
-sno_vm_mac: "52:54:00:00:00:99"
-# Logical NIC name in NMState; Assisted Installer maps it to the real interface via MAC
+# Must match MAC on the SNO VM in virt-manager (Assisted Installer static network)
+sno_vm_mac: "52:54:00:f4:c8:71"
 sno_nic_logical_name: eth0
 
 # Cluster SDN (defaults match Assisted Installer UI)
@@ -48,13 +53,45 @@ ai_install_operators:
   - name: lso
 
 # ---------------------------------------------------------------------------
-# UI form 4 — Discovery image + SSH public key
+# UI form 4 — SSH keys (two API fields, both required):
+#   - cluster ssh_public_key  → embedded in install ignition (core@ after install)
+#   - infra-env ssh_authorized_key → embedded in discovery ISO (core@ during discovery)
 # ---------------------------------------------------------------------------
 ai_image_type: minimal-iso
-ai_ssh_public_key_file: "{{ lookup('env', 'HOME') }}/.ssh/id_rsa.pub"
 ai_infra_env_name: "{{ cluster_name }}-infra-env"
-ai_artifacts_dir: "{{ playbook_dir }}/../artifacts"
+ai_artifacts_dir: "{{ ai_repo_root }}/artifacts"
 ai_iso_filename: "discovery.{{ cluster_name }}.iso"
 
-# Pull secret — download from console.redhat.com (do not copy-paste)
-ai_pull_secret_file: "{{ playbook_dir }}/../secrets/pull-secret.json"
+# Fresh rebuild: set both to false and delete old draft in cloud.redhat.com
+ai_use_existing_cluster: false
+ai_reuse_existing_infra_env: false
+
+# ---------------------------------------------------------------------------
+# Install wait (install-sno.yml / deploy-sno.yml step 3)
+# ---------------------------------------------------------------------------
+ai_install_poll_interval: 30
+ai_install_timeout: 10800
+ai_install_max_polls: "{{ (ai_install_timeout | int) // (ai_install_poll_interval | int) }}"
+ai_auto_trigger_install: true
+ai_install_terminal_success: installed
+ai_install_statuses_ready_for_install:
+  - ready
+  - pending-for-input
+ai_install_active_statuses:
+  - preparing-for-installation
+  - installing
+  - finalizing
+ai_install_terminal_failure:
+  - error
+  - cancelled
+
+# ---------------------------------------------------------------------------
+# Libvirt VM (boot-sno-vm.yml)
+# ---------------------------------------------------------------------------
+sno_vm_name: SNO
+sno_libvirt_uri: "qemu:///system"
+sno_vm_disk_primary: "/home/rabraham/VirtualMachines/sno.qcow2"
+sno_vm_disk_secondary: "/home/rabraham/VirtualMachines/sno2.qcow2"
+sno_discovery_iso: "{{ ai_artifacts_dir }}/{{ ai_iso_filename }}"
+sno_cdrom_target: sda
+sno_boot_xml_path: "/tmp/ansible-{{ sno_vm_name }}-boot.xml"

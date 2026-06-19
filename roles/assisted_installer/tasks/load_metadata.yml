@@ -1,0 +1,26 @@
+---
+- name: Load Assisted Installer metadata artifact
+  ansible.builtin.slurp:
+    src: "{{ ai_artifacts_dir }}/{{ cluster_name }}-assisted-installer.json"
+  register: ai_metadata_slurp
+
+- name: Parse cluster metadata from artifact
+  ansible.builtin.set_fact:
+    ai_metadata: "{{ ai_metadata_slurp.content | b64decode | from_json }}"
+
+- name: Apply cluster ID from metadata when not already set
+  ansible.builtin.set_fact:
+    ai_cluster_id: "{{ ai_metadata.cluster_id }}"
+  when: ai_cluster_id is not defined or ai_cluster_id | length == 0
+
+- name: Apply infra-env ID from metadata when not already set
+  ansible.builtin.set_fact:
+    ai_infra_env_id: "{{ ai_metadata.infra_env_id }}"
+  when: ai_infra_env_id is not defined or ai_infra_env_id | length == 0
+
+- name: Show loaded metadata
+  ansible.builtin.debug:
+    msg:
+      - "Cluster ID: {{ ai_cluster_id }}"
+      - "Infra-env ID: {{ ai_infra_env_id }}"
+      - "Console: {{ ai_metadata.console_url | default('https://console.redhat.com/openshift/assisted-installer/clusters/' ~ ai_cluster_id) }}"

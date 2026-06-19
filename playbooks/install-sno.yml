@@ -1,0 +1,16 @@
+---
+# Step 3: Accept discovered host via API, trigger install, wait until installed.
+#
+# Run after the VM has booted from the discovery ISO and the host appears in
+# cloud.redhat.com (or let this playbook poll until it does).
+#
+#   ansible-playbook playbooks/install-sno.yml --vault-password-file .vault_pass
+- name: Accept host and complete OpenShift SNO install
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - ../group_vars/all.yml
+  tasks:
+    - ansible.builtin.import_role:
+        name: assisted_installer
+        tasks_from: install_and_wait

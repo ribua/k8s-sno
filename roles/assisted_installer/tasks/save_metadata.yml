@@ -18,6 +18,8 @@
       dns_servers: "{{ dns_servers }}"
       machine_network_cidr: "{{ machine_network_cidr }}"
       sno_vm_mac: "{{ sno_vm_mac }}"
+      ssh_key_comment: "{{ ai_ssh_public_key.split()[-1] }}"
+      ssh_note: "cluster ssh_public_key + infra-env ssh_authorized_key both set from vault"
       operators: "{{ ai_install_operators }}"
       console_url: "https://console.redhat.com/openshift/assisted-installer/clusters/{{ ai_cluster_id }}"
       iso_path: "{{ ai_artifacts_dir }}/{{ ai_iso_filename }}"

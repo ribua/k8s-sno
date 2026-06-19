@@ -1,0 +1,26 @@
+---
+- name: Start SNO VM
+  ansible.builtin.command:
+    cmd: "virsh --connect {{ sno_libvirt_uri }} start {{ sno_vm_name }}"
+  register: sno_start
+  changed_when: "'already active' not in (sno_start.stderr | default(''))"
+  failed_when: >-
+    sno_start.rc != 0
+    and 'already active' not in (sno_start.stderr | default('') | lower)
+
+- name: Show SNO VM status
+  ansible.builtin.command:
+    cmd: "virsh --connect {{ sno_libvirt_uri }} dominfo {{ sno_vm_name }}"
+  register: sno_vm_status
+  changed_when: false
+
+- name: Display next steps
+  ansible.builtin.debug:
+    msg:
+      - "VM {{ sno_vm_name }} started — use the boot menu to select the discovery CDROM"
+      - "ISO attached at {{ sno_cdrom_target }}: {{ sno_discovery_iso }}"
+      - "MAC must match Assisted Installer: {{ sno_vm_mac }}"
+      - "Expected node IP: {{ sno_host_ip }}"
+      - "VM console: virsh --connect {{ sno_libvirt_uri }} console {{ sno_vm_name }}"
+      - "When the host appears in cloud.redhat.com, run: ansible-playbook playbooks/install-sno.yml --vault-password-file .vault_pass"
+      - "{{ sno_vm_status.stdout_lines }}"

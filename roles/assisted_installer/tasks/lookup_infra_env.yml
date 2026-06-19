@@ -1,0 +1,31 @@
+---
+# Reuse an existing infra-env for this cluster instead of creating duplicates.
+- name: Refresh API token before infra-env lookup
+  ansible.builtin.include_tasks: authenticate.yml
+
+- name: List infrastructure environments
+  ansible.builtin.uri:
+    url: "{{ ai_api_base }}/infra-envs"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ ai_api_token }}"
+    status_code: 200
+    return_content: true
+  register: ai_infra_envs_list
+
+- name: Select infra-env matching cluster and name
+  ansible.builtin.set_fact:
+    ai_infra_env_id: "{{ item.id }}"
+  loop: "{{ ai_infra_envs_list.json }}"
+  when: >-
+    item.cluster_id | default('') == ai_cluster_id
+    and item.name | default('') == ai_infra_env_name
+  loop_control:
+    label: "{{ item.name | default(item.id) }}"
+
+- name: Show reused infra-env
+  ansible.builtin.debug:
+    msg:
+      - "Reusing existing infra-env: {{ ai_infra_env_name }}"
+      - "Infra-env ID: {{ ai_infra_env_id }}"
+  when: ai_infra_env_id is defined

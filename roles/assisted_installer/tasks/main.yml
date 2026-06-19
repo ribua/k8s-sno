@@ -1,30 +1,39 @@
 ---
 # Workflow mirrors the Assisted Installer UI wizard for SNO:
-#   1. Cluster form (name, domain, version, 1 control plane, single VIP)
-#   2. Static network form (IP, DNS, subnet, gateway) → embedded in ISO
-#   3. Operators (Local Storage Operator for StorageClass)
-#   4. SSH public key + discovery image download
+#   1. Cluster form (name, domain, version, 1 control plane)
+#   2. Infra-env + static network + SSH key → discovery ISO
+#   3. Download ISO
+
+- name: Validate local prerequisites
+  ansible.builtin.include_tasks: validate_prerequisites.yml
+
+- name: Load Ansible Vault sealed secrets
+  ansible.builtin.include_tasks: load_vault_secrets.yml
 
 - name: Authenticate to Red Hat SSO
   ansible.builtin.include_tasks: authenticate.yml
 
-- name: "UI step 1 — Create cluster definition"
-  ansible.builtin.include_tasks: create_cluster.yml
+- name: Load pull secret
+  ansible.builtin.include_tasks: load_pull_secret.yml
 
-- name: "UI step 2a — Create infra-env (links cluster to ISO generation)"
+- name: "UI step 1a — Use existing draft cluster"
+  ansible.builtin.include_tasks: lookup_cluster.yml
+  when: ai_use_existing_cluster | bool
+
+- name: "UI step 1b — Create cluster definition"
+  ansible.builtin.include_tasks: create_cluster.yml
+  when: not (ai_use_existing_cluster | bool)
+
+- name: "UI step 1c — Set cluster SSH key for install ignition"
+  ansible.builtin.include_tasks: update_cluster_ssh.yml
+
+- name: "UI step 2 — Create or reuse infra-env"
   ansible.builtin.include_tasks: create_infra_env.yml
 
-- name: "UI step 2b — Configure static network on discovery image"
-  ansible.builtin.include_tasks: configure_network.yml
+- name: "UI step 3 — Configure network + SSH key on discovery image"
+  ansible.builtin.include_tasks: update_infra_env_image.yml
 
-- name: "UI step 3 — Operators (Local Storage) applied in create_cluster.yml"
-  ansible.builtin.debug:
-    msg: "Local Storage Operator (lso) requested at cluster creation for default SC"
-
-- name: "UI step 4a — Add SSH key and regenerate discovery ISO"
-  ansible.builtin.include_tasks: configure_ssh_and_iso.yml
-
-- name: "UI step 4b — Download discovery ISO"
+- name: "UI step 4 — Download discovery ISO"
   ansible.builtin.include_tasks: download_iso.yml
 
 - name: Save metadata artifact

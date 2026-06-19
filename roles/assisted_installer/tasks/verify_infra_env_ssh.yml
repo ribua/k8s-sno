@@ -1,0 +1,36 @@
+---
+# Verify the infra-env has an SSH public key before ISO download / install.
+- name: Fetch infra-env configuration
+  ansible.builtin.uri:
+    url: "{{ ai_api_base }}/infra-envs/{{ ai_infra_env_id }}"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ ai_api_token }}"
+    status_code: 200
+    return_content: true
+  register: ai_infra_env_get_response
+
+- name: Set infra-env SSH key facts
+  ansible.builtin.set_fact:
+    ai_infra_env_ssh_key: "{{ ai_infra_env_get_response.json.ssh_authorized_key | default('') | trim }}"
+
+- name: Fail if infra-env has no SSH public key
+  ansible.builtin.fail:
+    msg: >-
+      Infra-env {{ ai_infra_env_id }} has no ssh_authorized_key set.
+      Check rh_ssh_public_key in secrets/vault.yml and re-run create-cluster-and-iso.yml
+  when: ai_infra_env_ssh_key | length == 0
+
+- name: Fail if infra-env SSH key does not match vault
+  ansible.builtin.fail:
+    msg: >-
+      Infra-env SSH key does not match rh_ssh_public_key from vault.
+      Edit secrets/vault.yml and re-run create-cluster-and-iso.yml.
+  when: ai_infra_env_ssh_key != ai_ssh_public_key
+
+- name: Show verified SSH key on infra-env
+  ansible.builtin.debug:
+    msg:
+      - "Infra-env SSH key verified"
+      - "Key comment: {{ ai_infra_env_ssh_key.split()[-1] }}"
+      - "Use matching private key: ssh -i <private-key> core@{{ sno_host_ip }}"

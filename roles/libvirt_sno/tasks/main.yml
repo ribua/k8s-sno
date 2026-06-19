@@ -1,0 +1,12 @@
+---
+- name: Validate disks, ISO, and existing SNO VM
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Attach discovery ISO to SNO VM
+  ansible.builtin.include_tasks: attach_iso.yml
+
+- name: Enable boot menu (select CDROM manually at startup)
+  ansible.builtin.include_tasks: enable_boot_menu.yml
+
+- name: Start SNO VM
+  ansible.builtin.include_tasks: start_vm.yml

@@ -1,0 +1,22 @@
+---
+# Full SNO rebuild — three steps:
+#   1. Create cluster draft + download discovery ISO (SSH key embedded)
+#   2. Attach ISO, enable boot menu, start VM (pick CDROM at boot menu)
+#   3. Accept host via API, trigger install, wait until installed
+#
+# Before rebuilding:
+#   - Delete old cluster draft in cloud.redhat.com
+#   - Confirm group_vars: ai_use_existing_cluster: false, ai_reuse_existing_infra_env: false
+#   - Confirm rh_ssh_public_key in secrets/vault.yml matches ~/.ssh/id.bastion.pub
+#   - Optionally wipe/recreate VM disks for a clean install
+#
+# Run:
+#   ansible-playbook playbooks/deploy-sno.yml --vault-password-file .vault_pass
+- name: "Step 1 — Create cluster and download discovery ISO"
+  ansible.builtin.import_playbook: create-cluster-and-iso.yml
+
+- name: "Step 2 — Attach ISO, enable boot menu, start VM"
+  ansible.builtin.import_playbook: boot-sno-vm.yml
+
+- name: "Step 3 — Accept host and complete install"
+  ansible.builtin.import_playbook: install-sno.yml

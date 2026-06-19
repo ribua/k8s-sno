@@ -1,0 +1,2 @@
+---
+# SSH key and Red Hat credentials are validated in load_vault_secrets.yml

@@ -1,0 +1,8 @@
+---
+sno_vm_name: SNO
+sno_libvirt_uri: "qemu:///system"
+sno_vm_disk_primary: "/home/rabraham/VirtualMachines/sno.qcow2"
+sno_vm_disk_secondary: "/home/rabraham/VirtualMachines/sno2.qcow2"
+sno_discovery_iso: "{{ ai_artifacts_dir }}/{{ ai_iso_filename }}"
+sno_cdrom_target: sda
+sno_boot_xml_path: "/tmp/ansible-{{ sno_vm_name }}-boot.xml"

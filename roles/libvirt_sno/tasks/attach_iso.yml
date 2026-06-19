@@ -1,0 +1,29 @@
+---
+- name: Stop SNO VM before attaching discovery ISO (if running)
+  ansible.builtin.command:
+    cmd: "virsh --connect {{ sno_libvirt_uri }} destroy {{ sno_vm_name }}"
+  when: sno_domstate.stdout | trim != 'shut off'
+  register: sno_stop
+  changed_when: sno_stop.rc == 0
+  failed_when: false
+
+- name: Swap discovery ISO on existing CDROM
+  ansible.builtin.command:
+    cmd: >-
+      virsh --connect {{ sno_libvirt_uri }} change-media
+      {{ sno_vm_name }} {{ sno_cdrom_target }}
+      {{ sno_discovery_iso }} --config --force
+  register: sno_change_media
+  changed_when: sno_change_media.rc == 0
+  failed_when: false
+
+- name: Add SATA CDROM and attach discovery ISO (first boot on q35)
+  ansible.builtin.command:
+    cmd: >-
+      virsh --connect {{ sno_libvirt_uri }} attach-disk
+      {{ sno_vm_name }} {{ sno_discovery_iso }}
+      {{ sno_cdrom_target }} --type cdrom --mode readonly --config
+  register: sno_attach_cdrom
+  when: sno_change_media.rc != 0
+  changed_when: sno_attach_cdrom.rc == 0
+  failed_when: sno_attach_cdrom.rc != 0

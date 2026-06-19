@@ -1,0 +1,33 @@
+---
+- name: Register SNO cluster with Assisted Installer
+  ansible.builtin.uri:
+    url: "{{ ai_api_base }}/clusters"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ ai_api_token }}"
+      Content-Type: application/json
+    body_format: json
+    body: "{{ ai_cluster_create_body }}"
+    status_code: [201, 409]
+    return_content: true
+  register: ai_cluster_response
+  no_log: true
+
+- name: Save cluster ID from new registration
+  ansible.builtin.set_fact:
+    ai_cluster_id: "{{ ai_cluster_response.json.id }}"
+  when: ai_cluster_response.status == 201
+
+- name: Reuse existing draft when cluster name already exists
+  ansible.builtin.include_tasks: lookup_cluster.yml
+  when: ai_cluster_response.status == 409
+
+- name: Show cluster registration result
+  ansible.builtin.debug:
+    msg:
+      - "{{ 'Cluster registered' if ai_cluster_response.status == 201 else 'Using existing draft cluster' }}: {{ cluster_name }}.{{ base_domain }}"
+      - "Control planes: {{ control_plane_count }} (SNO)"
+      - "Node / DNS IP (api + apps): {{ sno_host_ip }}"
+      - "Operators: {{ ai_install_operators | map(attribute='name') | list | join(', ') }}"
+      - "Cluster ID: {{ ai_cluster_id }}"
+      - "Console: https://console.redhat.com/openshift/assisted-installer/clusters/{{ ai_cluster_id }}"

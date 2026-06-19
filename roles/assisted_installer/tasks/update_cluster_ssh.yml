@@ -1,0 +1,49 @@
+---
+# ssh_public_key on the cluster (not just infra-env) embeds the key in install ignition.
+- name: Refresh API token before cluster SSH update
+  ansible.builtin.include_tasks: authenticate.yml
+
+- name: Set cluster SSH public key for install ignition
+  ansible.builtin.uri:
+    url: "{{ ai_api_base }}/clusters/{{ ai_cluster_id }}"
+    method: PATCH
+    headers:
+      Authorization: "Bearer {{ ai_api_token }}"
+      Content-Type: application/json
+    body_format: json
+    body:
+      ssh_public_key: "{{ ai_ssh_public_key }}"
+    status_code: [200, 201]
+    return_content: true
+  register: ai_cluster_ssh_patch
+
+- name: Fetch cluster to verify SSH public key
+  ansible.builtin.uri:
+    url: "{{ ai_api_base }}/clusters/{{ ai_cluster_id }}"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ ai_api_token }}"
+    status_code: 200
+    return_content: true
+  register: ai_cluster_get_response
+
+- name: Fail if cluster has no SSH public key
+  ansible.builtin.fail:
+    msg: >-
+      Cluster {{ ai_cluster_id }} has no ssh_public_key.
+      Check rh_ssh_public_key in secrets/vault.yml and re-run create-cluster-and-iso.yml.
+  when: ai_cluster_get_response.json.ssh_public_key | default('') | trim | length == 0
+
+- name: Fail if cluster SSH key does not match vault
+  ansible.builtin.fail:
+    msg: >-
+      Cluster ssh_public_key does not match rh_ssh_public_key from vault.
+      Re-run create-cluster-and-iso.yml after fixing vault.
+  when: ai_cluster_get_response.json.ssh_public_key | trim != ai_ssh_public_key
+
+- name: Show cluster SSH key verified
+  ansible.builtin.debug:
+    msg:
+      - "Cluster install ignition will include SSH key"
+      - "Key comment: {{ ai_cluster_get_response.json.ssh_public_key.split()[-1] }}"
+      - "After install: ssh -i ~/.ssh/id.bastion core@{{ sno_host_ip }}"

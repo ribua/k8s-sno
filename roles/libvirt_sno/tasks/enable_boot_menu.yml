@@ -1,0 +1,28 @@
+---
+- name: Dump SNO domain XML for boot menu update
+  ansible.builtin.command:
+    cmd: "virsh --connect {{ sno_libvirt_uri }} dumpxml {{ sno_vm_name }}"
+  register: sno_domain_xml_dump
+  changed_when: false
+
+- name: Write domain XML to temp file
+  ansible.builtin.copy:
+    content: "{{ sno_domain_xml_dump.stdout }}"
+    dest: "{{ sno_boot_xml_path }}"
+    mode: "0600"
+
+- name: Enable libvirt boot menu on SNO VM
+  ansible.builtin.script:
+    cmd: "enable_boot_menu.py {{ sno_boot_xml_path }}"
+    executable: python3
+
+- name: Apply boot menu change to SNO domain
+  ansible.builtin.command:
+    cmd: "virsh --connect {{ sno_libvirt_uri }} define {{ sno_boot_xml_path }}"
+  register: sno_define_bootmenu
+  changed_when: "'defined from' in sno_define_bootmenu.stdout"
+
+- name: Remove temp domain XML
+  ansible.builtin.file:
+    path: "{{ sno_boot_xml_path }}"
+    state: absent

@@ -1,0 +1,40 @@
+---
+# Resolve ai_cluster_id for an existing draft cluster in cloud.redhat.com
+- name: Skip cluster lookup when cluster ID already set
+  ansible.builtin.debug:
+    msg: "Using cluster ID: {{ ai_cluster_id }}"
+  when: ai_cluster_id is defined
+
+- name: Refresh API token before cluster lookup
+  ansible.builtin.include_tasks: authenticate.yml
+  when: ai_cluster_id is not defined
+
+- name: List Assisted Installer clusters
+  ansible.builtin.uri:
+    url: "{{ ai_api_base }}/clusters"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ ai_api_token }}"
+    status_code: 200
+    return_content: true
+  register: ai_clusters_list
+  when: ai_cluster_id is not defined
+
+- name: Find draft cluster by name
+  ansible.builtin.set_fact:
+    ai_cluster_id: "{{ ai_clusters_list.json | selectattr('name', 'equalto', cluster_name) | map(attribute='id') | first }}"
+  when: ai_cluster_id is not defined
+
+- name: Fail if cluster draft was not found
+  ansible.builtin.fail:
+    msg: >-
+      No cluster named '{{ cluster_name }}' found in cloud.redhat.com.
+      Create a draft first or pass -e ai_cluster_id=<uuid>
+  when: ai_cluster_id is not defined or ai_cluster_id | length == 0
+
+- name: Show resolved cluster
+  ansible.builtin.debug:
+    msg:
+      - "Found draft cluster: {{ cluster_name }}"
+      - "Cluster ID: {{ ai_cluster_id }}"
+      - "Console: https://console.redhat.com/openshift/assisted-installer/clusters/{{ ai_cluster_id }}"

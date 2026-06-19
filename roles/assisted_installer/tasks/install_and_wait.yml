@@ -1,0 +1,38 @@
+---
+- name: Load Ansible Vault sealed secrets
+  ansible.builtin.include_tasks: load_vault_secrets.yml
+
+- name: Authenticate to Red Hat SSO
+  ansible.builtin.include_tasks: authenticate.yml
+
+- name: Load cluster metadata from artifacts
+  ansible.builtin.include_tasks: load_metadata.yml
+
+- name: Initialize install wait state
+  ansible.builtin.set_fact:
+    ai_install_triggered: false
+    ai_install_complete: false
+    ai_poll_count: 0
+
+- name: Wait for host discovery, accept host, and complete install
+  ansible.builtin.include_tasks: install_poll_iteration.yml
+  loop: "{{ range(1, (ai_install_max_polls | int) + 1) | list }}"
+  loop_control:
+    loop_var: ai_poll_iteration
+    label: "poll {{ ai_poll_iteration }}/{{ ai_install_max_polls }}"
+  when: not (ai_install_complete | default(false) | bool)
+
+- name: Fail if cluster did not reach installed status before timeout
+  ansible.builtin.fail:
+    msg: >-
+      Timed out after {{ ai_install_max_polls }} polls (~{{ ai_install_timeout }}s).
+      Last cluster status: {{ ai_cluster_status | default('unknown') }}.
+      Console: https://console.redhat.com/openshift/assisted-installer/clusters/{{ ai_cluster_id }}
+  when: not (ai_install_complete | default(false) | bool)
+
+- name: Install completed
+  ansible.builtin.debug:
+    msg:
+      - "Cluster {{ cluster_name }}.{{ base_domain }} is installed"
+      - "API: https://api.{{ cluster_name }}.{{ base_domain }}:6443"
+      - "Console: {{ ai_metadata.console_url | default('') }}"

@@ -1,6 +1,5 @@
 ---
-# Mirrors Assisted Installer UI — form 2: static IP, DNS, subnet, default gateway.
-# Applied to the discovery ISO via NMState before download.
+# Single PATCH: static network + SSH key on infra-env, then verify before ISO download.
 - name: Validate static network inputs
   ansible.builtin.assert:
     that:
@@ -10,17 +9,16 @@
       - default_gateway is defined
       - dns_servers | length > 0
     fail_msg: >-
-      Set sno_vm_mac (libvirt MAC), sno_host_ip, default_gateway, and dns_servers
-      in group_vars/all.yml to match your Assisted Installer network form.
+      Set sno_vm_mac, sno_host_ip, default_gateway, and dns_servers in group_vars/all.yml.
 
-- name: Refresh API token before network configuration
+- name: Refresh API token before infra-env image update
   ansible.builtin.include_tasks: authenticate.yml
 
 - name: Build NMState YAML for static network
   ansible.builtin.set_fact:
     ai_nmstate_yaml: "{{ lookup('template', 'nmstate-static-network.yml.j2') }}"
 
-- name: Apply static network configuration to infra-env
+- name: Apply network and SSH key to infra-env (regenerates discovery image)
   ansible.builtin.uri:
     url: "{{ ai_api_base }}/infra-envs/{{ ai_infra_env_id }}"
     method: PATCH
@@ -29,8 +27,9 @@
       Content-Type: application/json
     body_format: json
     body:
-      pull_secret: "{{ ai_pull_secret }}"
+      pull_secret: "{{ ai_pull_secret_string }}"
       image_type: "{{ ai_image_type }}"
+      ssh_authorized_key: "{{ ai_ssh_public_key }}"
       static_network_config:
         - network_yaml: "{{ ai_nmstate_yaml }}"
           mac_interface_map:
@@ -38,12 +37,15 @@
               logical_nic_name: "{{ sno_nic_logical_name }}"
     status_code: [200, 201]
     return_content: true
-  register: ai_network_response
+  register: ai_infra_env_patch_response
 
-- name: Show static network result
+- name: Verify SSH key is set on infra-env
+  ansible.builtin.include_tasks: verify_infra_env_ssh.yml
+
+- name: Show infra-env image configuration
   ansible.builtin.debug:
     msg:
+      - "Discovery image configured on infra-env {{ ai_infra_env_id }}"
       - "Static IP: {{ sno_host_ip }}/{{ sno_subnet_prefix_length }}"
-      - "Gateway: {{ default_gateway }}"
-      - "DNS: {{ dns_servers | join(', ') }}"
-      - "MAC: {{ sno_vm_mac }} -> {{ sno_nic_logical_name }}"
+      - "SSH key comment: {{ ai_ssh_public_key.split()[-1] }}"
+      - "After install, SSH: ssh -i ~/.ssh/id.bastion core@{{ sno_host_ip }}"

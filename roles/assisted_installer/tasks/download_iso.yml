@@ -1,4 +1,6 @@
 ---
+# Always download after network + SSH are applied to the infra-env.
+# Skipping left stale ISOs without the vault SSH key embedded.
 - name: Refresh API token before ISO download
   ansible.builtin.include_tasks: authenticate.yml
 
@@ -18,6 +20,11 @@
     state: directory
     mode: "0755"
 
+- name: Remove previous discovery ISO before download
+  ansible.builtin.file:
+    path: "{{ ai_artifacts_dir }}/{{ ai_iso_filename }}"
+    state: absent
+
 - name: Download discovery ISO
   ansible.builtin.get_url:
     url: "{{ ai_iso_url_response.json.url }}"
@@ -31,5 +38,6 @@
   ansible.builtin.debug:
     msg:
       - "Discovery ISO saved to: {{ ai_artifacts_dir }}/{{ ai_iso_filename }}"
-      - "URL expires at: {{ ai_iso_url_response.json.expires_at }}"
-      - "Boot a VM from this ISO, then open the console URL above to finish install."
+      - "SSH key comment in vault: {{ ai_ssh_public_key.split()[-1] }}"
+      - "URL expires at: {{ ai_iso_url_response.json.expires_at | default('n/a') }}"
+      - "After install, SSH: ssh -i ~/.ssh/id.bastion core@{{ sno_host_ip }}"
